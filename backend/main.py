@@ -15,22 +15,21 @@ class ProductResult(BaseModel):
     store: Optional[str] = None
     error: Optional[str] = None
 
+# Import service
+from services.product_service import save_product_history
+
 @app.get("/")
 def read_root():
     return {"message": "PCBBR API is running"}
 
 @app.get("/search", response_model=List[ProductResult])
-async def search_product(url: str = Query(..., description="Product URL to scrape")):
+def search_product(url: str = Query(..., description="Product URL to scrape")):
     """
-    Detects the store from the URL and runs the appropriate scraper.
+    Detects the store from the URL, runs the scraper, and saves to DB.
     """
     
     # Simple store detection logic
     if "amazon.com.br" in url:
-        # FastAPI handles async execution of synchronous functions in threadpool
-        # But our scrapers are sync using requests/curl_cffi sync.
-        # Ideally we should make scrapers async or use run_in_executor.
-        # For now, just calling them directly (FastAPI puts them in threadpool).
         result = amazon.fetch_product(url)
     elif "kabum.com.br" in url:
         result = kabum.fetch_product(url)
@@ -41,8 +40,15 @@ async def search_product(url: str = Query(..., description="Product URL to scrap
     else:
         raise HTTPException(status_code=400, detail="Unsupported store or invalid URL")
 
-    # Normalize result to list (for now just returning 1 item, but structure allows future expansion)
-    # The scrapers return a dict. Adapter it to Pydantic.
+    # Save to Database (Side Effect)
+    try:
+        if not result.get("error"):
+            save_product_history(result)
+    except Exception as e:
+        print(f"DB Error: {e}")
+        # We don't block the response if DB fails, but we log it.
+
+    # Normalize result
     return [result]
 
 if __name__ == "__main__":
