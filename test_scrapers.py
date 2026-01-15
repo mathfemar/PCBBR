@@ -1,14 +1,19 @@
-import fetch_terabyte
-import fetch_pichau
+import sys
+import os
+
+# Add project root to sys.path so we can import backend
+sys.path.append(os.getcwd())
+
+from backend.services.scrapers import terabyte, pichau, kabum, amazon
 
 def run_tests():
-    print("--- PCBBR Scraper Tests ---\n")
+    print("--- PCBBR Scraper Tests (New Architecture) ---\n")
     
     # 1. TerabyteShop
     print("Testing TerabyteShop...")
     tera_url = "https://www.terabyteshop.com.br/produto/30040/processador-amd-ryzen-5-9600x-39ghz-54ghz-turbo-6-cores-12-threads-am5-sem-cooler-100-100001405wof"
     try:
-        result = fetch_terabyte.fetch_product(tera_url)
+        result = terabyte.fetch_product(tera_url)
         print(f"Result: {result}")
         if result.get('price'):
             print("✅ Terabyte Success")
@@ -23,7 +28,7 @@ def run_tests():
     print("Testing Pichau...")
     pichau_url = "https://www.pichau.com.br/placa-de-video-palit-geforce-rtx-5060-ti-infinity-3-16gb-gddr7-128-bit-ne7506t019t1-gb2061s"
     try:
-        result = fetch_pichau.fetch_product(pichau_url)
+        result = pichau.fetch_product(pichau_url)
         print(f"Result: {result}")
         if result.get('price'):
             print("✅ Pichau Success")
@@ -38,8 +43,7 @@ def run_tests():
     print("Testing Kabum...")
     kabum_url = "https://www.kabum.com.br/produto/609956/processador-amd-ryzen-5-9600x-3-9-ghz-5-4-ghz-cache-32-mb-6-nucleos-12-threads-am5-100-100001405wof"
     try:
-        import fetch_kabum
-        result = fetch_kabum.fetch_product(kabum_url)
+        result = kabum.fetch_product(kabum_url)
         print(f"Result: {result}")
         if result.get('price'):
             print("✅ Kabum Success")
@@ -54,8 +58,7 @@ def run_tests():
     print("Testing Amazon...")
     amazon_url = "https://www.amazon.com.br/Processador-AMD-Ryzen-5-5600G/dp/B092L9GF5N/"
     try:
-        import fetch_amazon
-        result = fetch_amazon.fetch_product(amazon_url)
+        result = amazon.fetch_product(amazon_url)
         print(f"Result: {result}")
         if result.get('price'):
             print("✅ Amazon Success")

@@ -1,6 +1,8 @@
 from curl_cffi import requests
 from bs4 import BeautifulSoup
-import scrapers_utils
+import json
+import re
+from .. import utils as scrapers_utils
 
 def fetch_product(url):
     """
@@ -13,7 +15,8 @@ def fetch_product(url):
             url, 
             impersonate="chrome120", 
             headers=scrapers_utils.get_headers(),
-            timeout=15
+            timeout=15,
+            verify=False
         )
         
         if response.status_code not in [200, 201]:
