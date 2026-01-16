@@ -1,6 +1,6 @@
 from curl_cffi import requests
 from bs4 import BeautifulSoup
-from .. import utils as scrapers_utils
+from services import utils as scrapers_utils
 import re
 
 def fetch_product(url):

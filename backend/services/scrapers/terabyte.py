@@ -2,7 +2,7 @@ from curl_cffi import requests
 from bs4 import BeautifulSoup
 import json
 import re
-from .. import utils as scrapers_utils
+from services import utils as scrapers_utils
 
 def fetch_product(url):
     """
