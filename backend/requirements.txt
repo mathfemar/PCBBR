@@ -6,3 +6,7 @@ sqlmodel>=0.0.14
 alembic>=1.13.0
 pydantic-settings>=2.1.0
 requests
+dash
+dash-bootstrap-components
+pandas
+plotly

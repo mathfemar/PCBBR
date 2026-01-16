@@ -1,6 +1,6 @@
 from curl_cffi import requests
 from bs4 import BeautifulSoup
-from services.scrapers.categories import CATEGORY_URLS
+from backend.services.scrapers.categories import CATEGORY_URLS
 import time
 
 def scrape_terabyte_category(category: str, max_products: int = 500):

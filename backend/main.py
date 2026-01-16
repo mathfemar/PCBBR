@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import asyncio
 
 # Import scrapers
-from services.scrapers import amazon, kabum, pichau, terabyte
+from backend.services.scrapers import amazon, kabum, pichau, terabyte
 
 app = FastAPI(title="PCBBR API", version="1.0.0")
 
@@ -26,8 +26,8 @@ class ProductResult(BaseModel):
     error: Optional[str] = None
 
 # Import service
-from services.product_service import save_product_history
-from services import build_service, catalog_service
+from backend.services.product_service import save_product_history
+from backend.services import build_service, catalog_service
 
 @app.get("/")
 def read_root():
@@ -161,7 +161,7 @@ def fetch_product_price(product_id: int):
         # Get product from database
         from sqlmodel import Session
         from sqlalchemy import text
-        from database import engine
+        from backend.database import engine
         
         with Session(engine) as session:
             query = text("SELECT url FROM product WHERE id = :id")

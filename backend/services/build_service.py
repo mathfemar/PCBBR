@@ -1,7 +1,7 @@
 from sqlmodel import Session
 from sqlalchemy import text
-from database import engine
-from models import Build, BuildItem, Product
+from backend.database import engine
+from backend.models import Build, BuildItem, Product
 from datetime import datetime
 from typing import List, Dict
 

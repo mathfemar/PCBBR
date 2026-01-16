@@ -1,11 +1,13 @@
 from sqlmodel import Session
 from sqlalchemy import text
-from database import engine
-from datetime import datetime
-from services.scrapers.category_kabum import scrape_kabum_category
-from services.scrapers.category_pichau import scrape_pichau_category
-from services.scrapers.category_terabyte import scrape_terabyte_category
-from services.scrapers.categories import CATEGORIES
+from backend.database import engine
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from backend.services.scrapers.category_kabum import scrape_kabum_category
+from backend.services.scrapers.category_pichau import scrape_pichau_category
+from backend.services.scrapers.category_terabyte import scrape_terabyte_category
+from backend.services.scrapers.categories import CATEGORIES
+from backend.services.scrapers import amazon, kabum, pichau, terabyte
 
 def catalog_products_by_category(category: str, store: str = None):
     """
@@ -103,12 +105,77 @@ def _save_catalog_product(product_data: dict):
         
         session.commit()
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from backend.services.scrapers import amazon, kabum, pichau, terabyte
+
+# ... imports ...
+
+def update_product_price(product):
+    """
+    Updates the price of a single product by scraping its URL.
+    Returns the updated product dict or the original if failed.
+    """
+    store = product['store']
+    url = product['url']
+    
+    scraper_map = {
+        'amazon': amazon,
+        'kabum': kabum,
+        'pichau': pichau,
+        'terabyte': terabyte
+    }
+    
+    if store not in scraper_map:
+        return product
+        
+    try:
+        # Scrape
+        result = scraper_map[store].fetch_product(url)
+        if result and result.get('price') is not None:
+            # Update DB (Quick session)
+            with Session(engine) as session:
+                update_query = text("""
+                    UPDATE product 
+                    SET current_price = :price, last_updated = :updated
+                    WHERE id = :id
+                """)
+                session.execute(update_query, {
+                    "price": result['price'],
+                    "updated": datetime.utcnow(),
+                    "id": product['id']
+                })
+                # Add History
+                hist_query = text("""
+                    INSERT INTO pricehistory (product_id, price, timestamp)
+                    VALUES (:pid, :price, :ts)
+                """)
+                session.execute(hist_query, {
+                    "pid": product['id'],
+                    "price": result['price'],
+                    "ts": datetime.utcnow()
+                })
+                session.commit()
+            
+            # Update local dict
+            product['current_price'] = result['price']
+            product['last_updated'] = datetime.utcnow()
+            
+    except Exception as e:
+        print(f"Error updating price for {product['name']}: {e}")
+        
+    return product
+
 def search_catalog(query: str, category: str = None, store: str = None, limit: int = 20):
     """
-    Searches the product catalog
+    Searches the product catalog and updates prices if stale (>1h)
     """
+    # 1. Return empty if no filters (Initial State)
+    if not query and not category and not store:
+        return []
+
     with Session(engine) as session:
-        sql = "SELECT id, name, url, store, category FROM product WHERE 1=1"
+        sql = "SELECT id, name, url, store, category, current_price, last_updated, image_url FROM product WHERE 1=1"
         params = {}
         
         if query:
@@ -129,13 +196,54 @@ def search_catalog(query: str, category: str = None, store: str = None, limit: i
         rows = result.fetchall()
         
         products = []
+        products_to_update = []
+        
         for row in rows:
-            products.append({
+            p_dict = {
                 "id": row[0],
                 "name": row[1],
                 "url": row[2],
                 "store": row[3],
-                "category": row[4]
-            })
+                "category": row[4],
+                "current_price": row[5],
+                "last_updated": row[6],
+                "image_url": row[7]
+            }
+            products.append(p_dict)
+            
+            # Check freshness (1 hour)
+            last_up = row[6]
+            if not last_up:
+                last_up = datetime.min
+            elif isinstance(last_up, str):
+                try:
+                    # Attempt to parse ISO format string from SQLite
+                    last_up = datetime.fromisoformat(last_up)
+                except ValueError:
+                    # Fallback if format is different (e.g. without T separator)
+                    try:
+                        last_up = datetime.strptime(last_up, "%Y-%m-%d %H:%M:%S.%f")
+                    except ValueError:
+                        try:
+                            last_up = datetime.strptime(last_up, "%Y-%m-%d %H:%M:%S")
+                        except ValueError:
+                            last_up = datetime.min
+
+            is_stale = (datetime.utcnow() - last_up) > timedelta(hours=1)
+            is_zero = row[5] == 0 or row[5] is None
+            
+            if is_stale or is_zero:
+                products_to_update.append(p_dict)
         
+        # 3. Parallel Update for stale products
+        # Limit to avoid massive lag
+        if products_to_update:
+            print(f"Updating {len(products_to_update)} stale products...")
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = {executor.submit(update_product_price, p): p for p in products_to_update}
+                
+                for future in as_completed(futures):
+                    # Results are updated in-place in the dicts inside 'products' list
+                    pass
+                    
         return products

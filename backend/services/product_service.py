@@ -1,7 +1,7 @@
-from sqlmodel import Session
+from sqlmodel import Session, select
 from sqlalchemy import text
-from database import engine
-from models import Product, PriceHistory
+from backend.database import engine
+from backend.models import Product, PriceHistory
 from datetime import datetime
 
 def save_product_history(data: dict) -> Product:
@@ -91,4 +91,6 @@ def save_product_history(data: dict) -> Product:
             session.commit()
 
         # Return product object (opcional, pode retornar None se não precisar)
-        return None
+        # Return the product object
+        product = session.exec(select(Product).where(Product.id == product_id)).first()
+        return product
