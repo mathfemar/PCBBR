@@ -174,23 +174,27 @@ def search_catalog(query: str, category: str = None, store: str = None, limit: i
     if not query and not category and not store:
         return []
 
+    product = f'%{query.replace(" ", "%")}%'
+    print(f"Product: {product}")
+
     with Session(engine) as session:
         sql = "SELECT id, name, url, store, category, current_price, last_updated, image_url FROM product WHERE 1=1"
         params = {}
         
         if query:
             sql += " AND LOWER(name) LIKE LOWER(:query)"
-            params['query'] = f"%{query}%"
+            params['query'] = product
+            print(f'SQL: {sql}')
         
         if category:
-            sql += " AND category = :category"
+            sql += " AND category = :category AND LOWER(name) NOT LIKE '%pc%' AND LOWER(name) NOT LIKE '%computador%' AND LOWER(name) NOT LIKE '%notebook%' AND LOWER(name) NOT LIKE '%placa%'"
             params['category'] = category
         
         if store:
             sql += " AND store = :store"
             params['store'] = store
         
-        sql += f" ORDER BY name LIMIT {limit}"
+        sql += f" ORDER BY name" #LIMIT {limit}"
         
         result = session.execute(text(sql), params)
         rows = result.fetchall()
