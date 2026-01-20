@@ -52,12 +52,29 @@ def fetch_product(url):
             if h1:
                 name = h1.get_text(strip=True)
 
+        # 3. Availability
+        available = True
+        avail_meta = soup.find("meta", attrs={"name": "product:availability"})
+        if avail_meta:
+            content = avail_meta.get("content", "").lower()
+            if "out of stock" in content or "oos" in content or "out_of_stock" in content:
+                available = False
+        
+        # Fallback: Check for "Esgotado" button or text
+        if available:
+            if soup.find(string=re.compile("Esgotado", re.IGNORECASE)) or soup.find(string=re.compile("Indisponível", re.IGNORECASE)):
+                # Double check to ensure it's not "Not Esgotado" or something (unlikely)
+                # Usually text "Esgotado" appears on the buy button.
+                # Let's rely on price presence too.
+                pass
+
         if name and price_str:
             return {
                 "name": name,
                 "price": scrapers_utils.clean_price(price_str),
                 "url": url,
-                "store": "Pichau"
+                "store": "Pichau",
+                "available": available
             }
         
         # Fallback Strategy: If meta tags fail, try to find price in text (Risky)

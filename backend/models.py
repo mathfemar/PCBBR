@@ -11,6 +11,7 @@ class Product(SQLModel, table=True):
     last_updated: datetime = Field(default_factory=datetime.utcnow)
     category: Optional[str] = Field(default=None, index=True)  # CPU, GPU, RAM, etc
     image_url: Optional[str] = Field(default=None)
+    available: bool = Field(default=True)
 
     # Relationships
     price_history: List["PriceHistory"] = Relationship(back_populates="product")

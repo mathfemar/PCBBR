@@ -133,16 +133,20 @@ def update_product_price(product):
         # Scrape
         result = scraper_map[store].fetch_product(url)
         if result and result.get('price') is not None:
+            new_price = result['price']
+            is_available = result.get('available', True)
+            
             # Update DB (Quick session)
             with Session(engine) as session:
                 update_query = text("""
                     UPDATE product 
-                    SET current_price = :price, last_updated = :updated
+                    SET current_price = :price, last_updated = :updated, available = :available
                     WHERE id = :id
                 """)
                 session.execute(update_query, {
-                    "price": result['price'],
+                    "price": new_price,
                     "updated": datetime.utcnow(),
+                    "available": is_available,
                     "id": product['id']
                 })
                 # Add History
@@ -152,21 +156,22 @@ def update_product_price(product):
                 """)
                 session.execute(hist_query, {
                     "pid": product['id'],
-                    "price": result['price'],
+                    "price": new_price,
                     "ts": datetime.utcnow()
                 })
                 session.commit()
             
             # Update local dict
-            product['current_price'] = result['price']
+            product['current_price'] = new_price
             product['last_updated'] = datetime.utcnow()
+            product['available'] = is_available
             
     except Exception as e:
         print(f"Error updating price for {product['name']}: {e}")
         
     return product
 
-def search_catalog(query: str, category: str = None, store: str = None, limit: int = 20):
+def search_catalog(query: str, category: str = None, store: str = None, limit: int = 100):
     """
     Searches the product catalog and updates prices if stale (>1h)
     """
@@ -174,11 +179,14 @@ def search_catalog(query: str, category: str = None, store: str = None, limit: i
     if not query and not category and not store:
         return []
 
-    product = f'%{query.replace(" ", "%")}%'
-    print(f"Product: {product}")
+    try:
+        product = f'%{query.replace(" ", "%")}%'
+        print(f"Product: {product}")
+    except Exception as e:
+        product = f'%{query}%'
 
     with Session(engine) as session:
-        sql = "SELECT id, name, url, store, category, current_price, last_updated, image_url FROM product WHERE 1=1"
+        sql = "SELECT id, name, url, store, category, current_price, last_updated, image_url, available FROM product WHERE 1=1 and available = 1"
         params = {}
         
         if query:
@@ -187,14 +195,14 @@ def search_catalog(query: str, category: str = None, store: str = None, limit: i
             print(f'SQL: {sql}')
         
         if category:
-            sql += " AND category = :category AND LOWER(name) NOT LIKE '%pc%' AND LOWER(name) NOT LIKE '%computador%' AND LOWER(name) NOT LIKE '%notebook%' AND LOWER(name) NOT LIKE '%placa%'"
+            sql += " AND category = :category --AND LOWER(name) NOT LIKE '%pc%' AND LOWER(name) NOT LIKE '%computador%' AND LOWER(name) NOT LIKE '%notebook%' AND LOWER(name) NOT LIKE '%placa%'"
             params['category'] = category
         
         if store:
             sql += " AND store = :store"
             params['store'] = store
         
-        sql += f" ORDER BY name" #LIMIT {limit}"
+        sql += f" ORDER BY name LIMIT {limit}"
         
         result = session.execute(text(sql), params)
         rows = result.fetchall()
@@ -211,7 +219,8 @@ def search_catalog(query: str, category: str = None, store: str = None, limit: i
                 "category": row[4],
                 "current_price": row[5],
                 "last_updated": row[6],
-                "image_url": row[7]
+                "image_url": row[7],
+                "available": row[8] if len(row) > 8 else True # Default True if col missing
             }
             products.append(p_dict)
             
@@ -249,5 +258,13 @@ def search_catalog(query: str, category: str = None, store: str = None, limit: i
                 for future in as_completed(futures):
                     # Results are updated in-place in the dicts inside 'products' list
                     pass
+        
+        # 4. Filter out unavailable products (Price 0 or None OR Explicitly Unavailable)
+        available_products = [
+            p for p in products 
+            if p.get('current_price') is not None 
+            and p.get('current_price') > 0
+            and p.get('available', True) is not False
+        ]
                     
-        return products
+        return available_products

@@ -57,12 +57,23 @@ def fetch_product(url):
             # Fallback if price is in a list of offers
             if not price and isinstance(offers, list):
                 price = offers[0].get('price')
-                
+            
+            # Extract Availability
+            available = True
+            avail_schema = offers.get('availability')
+            if isinstance(offers, list) and not avail_schema:
+                 avail_schema = offers[0].get('availability')
+
+            if avail_schema:
+                if 'OutOfStock' in avail_schema:
+                    available = False
+
             return {
                 "name": name,
                 "price": scrapers_utils.clean_price(price),
                 "url": url,
-                "store": "TerabyteShop"
+                "store": "TerabyteShop",
+                "available": available
             }
         
         # Fallback Strategy: CSS Selectors (if JSON-LD fails)

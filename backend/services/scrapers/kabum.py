@@ -49,11 +49,24 @@ def fetch_product(url):
                         price = product.get('price')
 
                     if name and price:
+                        # Availability Check
+                        available = product.get('available')
+                        if available is None:
+                            # Sometimes it's inside 'offer'
+                            offer = product.get('offer')
+                            if offer:
+                                available = offer.get('available')
+                        
+                        # Fallback: Check if price has value (sometimes 0 means unavailable)
+                        if available is None:
+                            available = (scrapers_utils.clean_price(price) or 0) > 0
+
                         return {
                             "name": name,
                             "price": scrapers_utils.clean_price(price),
                             "url": url,
-                            "store": "Kabum"
+                            "store": "Kabum",
+                            "available": bool(available)
                         }
             except Exception as e:
                 pass # JSON parsing failed
