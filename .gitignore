@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.log
+*.pot
+*.egg-info/
+dist/
+build/
+
+# Flutter
+frontend/build/
+frontend/.dart_tool/
+frontend/.pub/
+frontend/.packages
+frontend/flutter_export.json
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# Database (keep tracked)
+!database/*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Debug files (keep folder but ignore some content)
+debug/*.html
+debug/*.txt
+debug/*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
